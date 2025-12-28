@@ -1,0 +1,7 @@
+{
+  "departures": [
+    { "line": "A", "dest": "Muzeum", "in_min": 3 },
+    { "line": "C", "dest": "Hradčanská", "in_min": 7 },
+    { "line": "B", "dest": "Florenc", "in_min": 10 }
+  ]
+}

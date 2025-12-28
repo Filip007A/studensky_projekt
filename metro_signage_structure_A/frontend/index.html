@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Signage Prototype</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:20px; }
+    #status { margin-bottom:12px; }
+    .departure { padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+  </style>
+</head>
+<body>
+  <div id="status">Connecting...</div>
+  <div id="departures"></div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const depsEl = document.getElementById('departures');
+
+    // Použij backend přímo
+    const API_BASE = 'http://localhost:8000';
+    const WS_URL = 'ws://localhost:8000/ws/updates';
+    const FALLBACK_URL = `${API_BASE}/api/fallback`;
+    const STATUS_URL = `${API_BASE}/api/status`;
+
+    function setOfflineView() {
+      statusEl.textContent = 'OFFLINE — zobrazena lokální data';
+      fetch(FALLBACK_URL).then(r=>r.json()).then(data=>{
+        depsEl.innerHTML = '';
+        (data.departures || []).slice(0,5).forEach(s=>{
+          const div = document.createElement('div');
+          div.className = 'departure';
+          div.textContent = `${s.line || s.name} — ${s.dest || 'info'} ${s.in_min ? s.in_min + ' min' : ''}`;
+          depsEl.appendChild(div);
+        });
+      }).catch(()=>{ depsEl.innerHTML = '<div class="departure">Žádná fallback data</div>'; });
+    }
+
+    function connect() {
+      const ws = new WebSocket(WS_URL);
+      ws.onopen = () => { statusEl.textContent = 'ONLINE — přijímám data'; };
+      ws.onmessage = (ev) => {
+        const data = JSON.parse(ev.data);
+        depsEl.innerHTML = '';
+        (data.departures || []).forEach(d=>{
+          const div = document.createElement('div');
+          div.className = 'departure';
+          div.textContent = `${d.line} → ${d.dest} za ${d.in_min} min`;
+          depsEl.appendChild(div);
+        });
+      };
+      ws.onclose = () => {
+        statusEl.textContent = 'Connection closed, switching to offline';
+        setOfflineView();
+        setTimeout(connect, 5000);
+      };
+      ws.onerror = () => { ws.close(); };
+    }
+
+    // start
+    connect();
+    setInterval(()=>{
+      fetch(STATUS_URL).then(r=>r.json()).catch(()=> setOfflineView());
+    }, 10000);
+  </script>
+</body>
+</html>
